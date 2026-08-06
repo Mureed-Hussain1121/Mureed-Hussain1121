@@ -1,0 +1,77 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  CONTRIBUTION SNAKE
+#  Place this file at: .github/workflows/snake.yml
+#
+#  What it does
+#  ────────────
+#  Reads the public contribution graph for the repo owner, renders a snake
+#  animation eating it, and force-pushes the result to an orphan `output`
+#  branch. The README then loads the SVGs from raw.githubusercontent.com.
+#
+#  Two variants are produced so the README's <picture> element can serve the
+#  right one to light- and dark-mode readers:
+#      snake.svg       — light mode, profile blue palette
+#      snake-dark.svg  — dark mode, github-dark palette with a blue snake
+#
+#  Hex colours are URL-encoded as %23 because a bare # starts a YAML comment.
+#
+#  First run
+#  ─────────
+#  Actions tab → "Generate Contribution Snake" → Run workflow.
+#  Until it succeeds, the snake image in the README will show as broken.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Generate Contribution Snake
+
+on:
+  # Every six hours, at :00. Adjust freely — the graph changes slowly.
+  schedule:
+    - cron: "0 */6 * * *"
+
+  # Lets you trigger it by hand from the Actions tab.
+  workflow_dispatch:
+
+  # Regenerate whenever the profile repo itself is updated.
+  push:
+    branches:
+      - main
+
+# Least-privilege: the job only needs to write to this repository.
+permissions:
+  contents: write
+
+jobs:
+  build-snake:
+    name: Render and publish snake
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # ─────────────────────────────────────────────────────────────────────
+      # 1. Render the animation into ./dist
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Generate snake animations
+        uses: Platane/snk@v3
+        id: snake
+        with:
+          # Resolves to the repo owner, so this file is portable as-is.
+          github_user_name: ${{ github.repository_owner }}
+
+          # One line per output file. Query params tune each variant.
+          outputs: |
+            dist/snake.svg?color_snake=%2358A6FF&color_dots=%23EBEDF0,%23A5C9F5,%2358A6FF,%232F81D6,%23A855F7
+            dist/snake-dark.svg?palette=github-dark&color_snake=%2358A6FF&color_dots=%230D1117,%23163356,%231F4D80,%232F6FB3,%2358A6FF
+            dist/snake.gif?color_snake=%2358A6FF&color_dots=%230D1117,%23163356,%231F4D80,%232F6FB3,%2358A6FF
+
+      # ─────────────────────────────────────────────────────────────────────
+      # 2. Publish ./dist to the `output` branch
+      #    The branch is created automatically on the first successful run.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Push to output branch
+        uses: crazy-max/ghaction-github-pages@v4
+        with:
+          target_branch: output
+          build_dir: dist
+          commit_message: "chore: regenerate contribution snake"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
